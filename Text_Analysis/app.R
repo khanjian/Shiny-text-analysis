@@ -19,7 +19,7 @@ books <- books %>%
 
 ui <- fluidPage(theme = shinytheme("darkly"),
                 navbarPage("Book Text Analysis",
-                           tabPanel("Summary",
+                           tabPanel("Summary", ### 1
                                     mainPanel("The purpose of this Shiny app is to 
                                               conduct text and sentiment analysis of data 
                                               on seven classical novels.\n
@@ -28,7 +28,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                               In this app, you’ll have the opportunity to make a word cloud of most popular
                                               word by novel, to xxxxx, and to see the most popular 
                                               words that contribute to positive and negative sentiment by book")),
-                           tabPanel("Word-Cloud",
+                           tabPanel("Word-Cloud", ### 2
                                     sidebarLayout(
                                         sidebarPanel("Create a Word Cloud!",
                                                      selectInput(inputId = "pick_book",
@@ -39,7 +39,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                         mainPanel("Heres your Word Cloud",
                                                   plotOutput("wc_plot"))
                                     )),
-                           tabPanel("Sentiment-analysis",
+                           tabPanel("Sentiment-analysis", ### 3
                                     sidebarLayout(
                                         sidebarPanel("",
                                                      selectInput(inputId = "pick_book2",
@@ -51,7 +51,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                   plotOutput("sa_plot"))
                                     )
                                     ),
-                           tabPanel("Word-Count",
+                           tabPanel("Word-Count", ### 4
                                     sidebarLayout(
                                         sidebarPanel("",
                                                      textInput(inputId = "text",
@@ -63,6 +63,21 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                 
                                         mainPanel("Word Count",
                                                   plotOutput("words_plot"))
+                                    )
+                                    ),
+                           tabPanel("Pick a Book", ### 5
+                                    sidebarLayout(
+                                      sidebarPanel("",
+                                                   textInput(inputId = "pick_book3",
+                                                             label = "Book input",
+                                                             value = "Enter a title ..."
+                                                   ),
+                                                   actionButton("choose", "Show me!")
+                                      ),
+                                      
+                                      
+                                      mainPanel("",
+                                                plotOutput("pb_plot"))
                                     ))
                            )
 )
@@ -99,6 +114,26 @@ server <- function(input, output) {
             mutate(word = reorder(word, n))
         
     })
+    
+    ###Input 4
+    
+    pb_reactive <- eventReactive(input$choose,{
+      gutenberg_works(title %in% input$pick_book3) %>%
+        select(gutenberg_id) %>%
+        as.numeric() %>%
+        gutenberg_download(meta_fields = "title",
+                           strip = TRUE,
+                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+        unnest_tokens(word, text) %>%
+        inner_join(get_sentiments("bing")) %>%
+        count(word, sentiment, sort = TRUE) %>%
+        ungroup() %>% 
+        group_by(sentiment) %>%
+        top_n(10) %>%
+        ungroup() %>%
+        mutate(word = reorder(word, n))
+    })
+    
     ### output 1
     output$wc_plot <- renderPlot({
         wc_reactive() %>%
@@ -120,6 +155,15 @@ server <- function(input, output) {
             facet_wrap(~sentiment, scales = "free_y") +
             labs(x = "Contribution to sentiment",
                  y = NULL)
+    })
+    ### output 4
+    
+    output$pb_plot <- renderPlot({
+      ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
+        geom_col(show.legend = FALSE) +
+        facet_wrap(~sentiment, scales = "free_y") +
+        labs(x = "Contribution to sentiment",
+             y = NULL)
     })
 }
 
