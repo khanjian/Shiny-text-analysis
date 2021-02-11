@@ -7,13 +7,19 @@ library(wordcloud)
 library(wordcloud2)
 library(ECharts2Shiny)
 library(shinythemes)
+library(textdata)
+library(slider)
+library(kableExtra)
+library(knitr)
 
-books <- gutenberg_download(c(140, 219), 
-                              meta_fields = "title",
+ids <- c(140, 219, 64317, 1342, 16, 76, 55, 345, 205, 2701)
+
+books_initial <- gutenberg_download(ids, 
+                              meta_fields = c("title", "author"),
                               strip = TRUE,    
                               mirror = "http://mirrors.xmission.com/gutenberg/")
 
-books <- books %>% 
+books <- books_initial %>% 
     unnest_tokens(word,text)
 
 
@@ -30,13 +36,13 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                               words that contribute to positive and negative sentiment by book")),
                            tabPanel("Word-Cloud", ### 2
                                     sidebarLayout(
-                                        sidebarPanel("Create a Word Cloud!",
+                                        sidebarPanel("",
                                                      selectInput(inputId = "pick_book",
                                                                  label = "Select Book:",
                                                                  choices = unique(books$title)
                                                                  )
                                                      ),
-                                        mainPanel("Heres your Word Cloud",
+                                        mainPanel("Here’s a word cloud showing the most popular words that show up in your book! The largest words are the ones that show up the most often.",
                                                   plotOutput("wc_plot"))
                                     )),
                            tabPanel("Sentiment-analysis", ### 3
@@ -47,21 +53,22 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                  choices = unique(books$title)
                                                      )
                                         ),
-                                        mainPanel("Comparison of lexicons",
+                                        mainPanel("Here’s a graph which shows the top 10 words which contribute to negative or positive sentiment in your book!",
                                                   plotOutput("sa_plot"))
                                     )
                                     ),
                            tabPanel("Word-Count", ### 4
                                     sidebarLayout(
-                                        sidebarPanel("",
+                                        sidebarPanel("Enter a word to see how often it shows up across the 10 books listed below",
                                                      textInput(inputId = "text",
                                                                label = "Word Input",
                                                                value = "Enter word ..."
-                                                               )
+                                                               ),
+                                                     tableOutput('table_words')
                                                                ),
                                                      
                                 
-                                        mainPanel("Word Count",
+                                        mainPanel("Here’s a graph which shows how many times your specified word shows up in each book!",
                                                   plotOutput("words_plot"))
                                     )
                                     ),
@@ -78,6 +85,28 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                       
                                       mainPanel("",
                                                 plotOutput("pb_plot"))
+                                    ))
+                           ,
+                           tabPanel("Times series", ### 6
+                                    sidebarLayout(
+                                      sidebarPanel(HTML("<p>To check if a book title of your choosing is available in this database, please visit the <a href='https://www.gutenberg.org/'>Project Gutenberg website</a> and type your desired book into the search bar. If your book is available in the Project Gutenberg library, enter the title as it appears on Project Gutenberg into the search bar below.</p>"),
+                                                   textInput(inputId = "pick_book4",
+                                                             label = "Book input",
+                                                             value = "Enter a title ..."
+                                                   ),
+                                                   sliderInput(inputId = "moving_avg",
+                                                               label = "Choose a moving average window",
+                                                               min = 51, 
+                                                               max = 1001, 
+                                                               value = 101,
+                                                               step = 10
+                                                   ),
+                                                   actionButton("choose2", "Show me!")
+                                      ),
+                                      
+                                      
+                                      mainPanel("",
+                                                plotOutput("ts_plot"))
                                     ))
                            )
 )
@@ -134,6 +163,40 @@ server <- function(input, output) {
         mutate(word = reorder(word, n))
     })
     
+    ###Input 5
+    
+    ts_reactive <- eventReactive(input$choose2,{
+      gutenberg_works(title %in% input$pick_book4) %>%
+        select(gutenberg_id) %>%
+        as.numeric() %>%
+        gutenberg_download(meta_fields = "title",
+                           strip = TRUE,
+                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+        unnest_tokens(word, text) %>%
+        full_join(lexicon_nrc_vad(), by = c("word" = "Word")) %>%
+        drop_na(Valence) %>% 
+        mutate(index = seq(1, length(word) ,1)) %>% 
+        mutate(moving_avg = as.numeric(slide(Valence, 
+                                             mean, 
+                                             .before = (input$moving_avg - 1)/2 , 
+                                             .after = (input$moving_avg - 1)/2 ))) 
+        # count(word, sentiment, sort = TRUE) %>%
+        # ungroup() %>% 
+        # group_by(sentiment) %>%
+        # top_n(10) %>%
+        # ungroup() %>%
+        # mutate(word = reorder(word, n))
+    })
+    
+    ### input table for book
+    table_reactive <- reactive({
+      books_initial %>% 
+        distinct(title, .keep_all = TRUE) %>% 
+        select(c(title, author))
+      
+    })
+    
+    
     ### output 1
     output$wc_plot <- renderPlot({
         wc_reactive() %>%
@@ -145,7 +208,8 @@ server <- function(input, output) {
     ### output 2
     output$words_plot <- renderPlot({
         ggplot(data = words_reactive(), aes(x = title, y = count)) +
-            geom_col(aes(fill = title))
+            geom_col(aes(fill = title), show.legend = FALSE) + 
+        coord_flip() 
     })
     ### output 3
     
@@ -165,6 +229,15 @@ server <- function(input, output) {
         labs(x = "Contribution to sentiment",
              y = NULL)
     })
+    ### output 5
+    output$ts_plot <- renderPlot({
+      ggplot(data = ts_reactive(), aes(x = index)) +
+        geom_line(aes(y = moving_avg), color = "blue")
+    })
+    
+    output$table_words <- renderTable(
+      table_reactive()
+    )
 }
 
 # Run the application 
