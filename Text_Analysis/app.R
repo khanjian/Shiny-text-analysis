@@ -3,31 +3,12 @@ library(tidyverse)
 library(tidytext)
 library(gutenbergr)
 library(janitor)
-library(wordcloud)
-# library(wordcloud2)
-# library(ECharts2Shiny)
 library(shinythemes)
 library(textdata)
 library(slider)
-library(kableExtra)
-library(knitr)
 library(viridis)
 library(DT)
-
-
-### double check how to remove _ before and after some words that were bold or italic. 
-
-ids <- c(140, 219, 64317, 1342, 16, 76, 55, 345, 205, 2701)
-
-books_initial <- gutenberg_download(ids, 
-                              meta_fields = c("title", "author"),
-                              strip = TRUE,    
-                              mirror = "http://mirrors.xmission.com/gutenberg/")
-
-books <- books_initial %>% 
-    unnest_tokens(word,text) %>% 
-    anti_join(stop_words) %>% 
-    mutate(word = str_extract(word, "[a-z']+"))
+library(ggwordcloud)
 
 all_books1 <- gutenberg_works() %>%
   clean_names() %>%
@@ -36,7 +17,7 @@ all_books1 <- gutenberg_works() %>%
   drop_na(author, title, gutenberg_author_id) %>% 
   dplyr::select(gutenberg_id, title, author)
 
-# choose only amerian and english lit
+# choose only american and english lit
 top_subj <- gutenberg_subjects %>%
   filter(subject %in% c("PS","PR")) 
 
@@ -52,7 +33,8 @@ all_books_table <- all_books1 %>%
          `Author (Last, First)` = author)
 
 
-ui <- fluidPage(theme = shinytheme("darkly"),
+ui <- fluidPage(theme = shinytheme("flatly"),
+                shinyFeedback::useShinyFeedback(),
                 navbarPage("What's in a Word?",
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
@@ -66,15 +48,29 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                     icon = icon("cloud"),
                                     sidebarLayout(
                                         sidebarPanel("",
-                                                     selectInput(inputId = "pick_book",
-                                                                 label = "Select Book:",
-                                                                 choices = unique(books$title)
-                                                                 )
+                                                     textInput(inputId = "pick_book",
+                                                                 label = "Enter a title",
+                                                                 value = ""
+                                                                 ),
+                                                     radioButtons(inputId = "radio_wc",
+                                                                  label = "Choose number of words in your word cloud",
+                                                                  choices = list(
+                                                                    "25" = 25,
+                                                                    "50" = 50,
+                                                                    "75" = 75,
+                                                                    "100" = 100
+                                                                  )
+                                                                  ),
+                                                     actionButton("choose_word_cloud", "Show me!"),
+                                                     fluidRow(column(DT::dataTableOutput("all_books_tab1"),
+                                                                     width = 12)
+                                                     )
                                                      ),
                                         mainPanel("Here’s a word cloud showing the most popular words that show up in your book! The largest words are the ones that show up the most often. This widget allows you to select a book to view the top most frequently occurring words. The larger the word in the cloud, the more often it appears in the text!",
                                                   plotOutput("wc_plot"))
                                     )),
-                           tabPanel("Word-Count", ### 4
+                           ### 3
+                           tabPanel("Word-Count", 
                                     sidebarLayout(
                                         sidebarPanel(  "On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
                                                        textInput(inputId = "pick_book_wc1",
@@ -93,23 +89,29 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                  label = "Enter a word!",
                                                                  value = ""),
                                                        
-                                                       actionButton("choose_word", "Show me!")
+                                                       actionButton("choose_word", "Show me!"),
+                                                       fluidRow(column(DT::dataTableOutput("all_books_tab2"),
+                                                                       width = 12)
+                                                       )
                                                      
                                         ), 
                                                      
                                 
-                                        mainPanel("Here’s a graph which shows how many times your specified word shows up in each book!",
-                                                  plotOutput("words_plot"))
+                                        mainPanel( plotOutput("words_plot"))
                                     )
                                     ),
-                           tabPanel("Sentiment Analysis", ### 5
+                           ### 4
+                           tabPanel("Sentiment Analysis",
                                     sidebarLayout(
                                       sidebarPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
                                                    textInput(inputId = "pick_book3",
                                                              label = "Enter a title:",
                                                              value = ""
                                                    ),
-                                                   actionButton("choose", "Show me!")
+                                                   actionButton("choose", "Show me!"),
+                                                   fluidRow(column(DT::dataTableOutput("all_books_tab3"),
+                                                                   width = 12)
+                                                   )
                                       ),
                                       
                                       
@@ -117,7 +119,8 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                 plotOutput("pb_plot"))
                                     ))
                            ,
-                           tabPanel("Sentiment Trajectory", ### 6
+                           ### 5
+                           tabPanel("Sentiment Trajectory", 
                                     sidebarLayout(
                                       sidebarPanel("",
                                                    textInput(inputId = "pick_book4",
@@ -132,7 +135,8 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                                value = 101,
                                                                step = 10
                                                    ),
-                                                   actionButton("choose2", "Show me!"),
+                                                   actionButton(inputId = "choose2", 
+                                                                label = "Show me!"),
                                                    fluidRow(column(DT::dataTableOutput("all_books_tab4"),
                                                                    width = 12)
                                                    )
@@ -151,8 +155,6 @@ Read your book to see if the plot matches up with what you find in the sentiment
 
 )
   
-
-# Define server logic required to draw a histogram
 server <- function(input, output) {
     
     ### table on main page
@@ -166,6 +168,37 @@ server <- function(input, output) {
                     rownames = FALSE,
                     caption = 'Start searching below to check if your book exists in the Project GutenbergR database:'))
     
+    ### table on wc page
+    output$all_books_tab1 <- DT::renderDataTable(
+      DT::datatable({all_books_table[,1:2]},
+                    options = list(lengthMenu = list(c(5),c('5')),
+                                   dom = 'tipr'),
+                    style = "bootstrap",
+                    filter = "top",
+                    class = 'cell-border stripe',
+                    rownames = FALSE))
+    
+    ### table on word count page
+    output$all_books_tab2 <- DT::renderDataTable(
+      DT::datatable({all_books_table[,1:2]},
+                    options = list(lengthMenu = list(c(5),c('5')),
+                                   dom = 'tipr'),
+                    style = "bootstrap",
+                    filter = "top",
+                    class = 'cell-border stripe',
+                    rownames = FALSE))
+    
+    
+    ### table on sentimen page
+    output$all_books_tab3 <- DT::renderDataTable(
+      DT::datatable({all_books_table[,1:2]},
+                    options = list(lengthMenu = list(c(5),c('5')),
+                                   dom = 'tipr'),
+                    style = "bootstrap",
+                    filter = "top",
+                    class = 'cell-border stripe',
+                    rownames = FALSE))
+    
     ### table on ts page
     output$all_books_tab4 <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
@@ -178,39 +211,59 @@ server <- function(input, output) {
 
     
     ### Input 1
-    wc_reactive <- reactive({
-        books %>% 
-            filter(title %in% input$pick_book)
-        
+    wc_reactive <- eventReactive(input$choose_word_cloud,{
+      all_books %>%
+        filter(title %in% c(input$pick_book,
+                            str_to_lower(input$pick_book),
+                            str_to_title(input$pick_book))) %>% # changes the users input to title case
+        select(gutenberg_id) %>%
+        as.numeric() %>%
+        gutenberg_download(meta_fields = "title",
+                           strip = TRUE,
+                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+        unnest_tokens(word, text) %>%
+        anti_join(stop_words) %>%
+        mutate(word = str_extract(word, "[a-z']+")) %>% 
+        count(word) %>% 
+        slice_max(n, n = as.numeric(input$radio_wc))
+    
     })
     ### Input 2
-    words_reactive <- reactive({
-        books %>% 
-            filter(word %in% input$text) %>% 
-            group_by(title) %>% 
-            summarise(count = n())
+    words_reactive <-  eventReactive(input$choose_word,{
+      all_books %>%
+        filter(title %in% c(input$pick_book_wc1,
+                            str_to_lower(input$pick_book_wc1),
+                            str_to_title(input$pick_book_wc1),
+                            input$pick_book_wc2,
+                            str_to_lower(input$pick_book_wc2),
+                            str_to_title(input$pick_book_wc2),
+                            input$pick_book_wc3,
+                            str_to_lower(input$pick_book_wc3),
+                            str_to_title(input$pick_book_wc3),
+                            input$pick_book_wc4,
+                            str_to_lower(input$pick_book_wc4),
+                            str_to_title(input$pick_book_wc4))) %>% # changes the users input to title case
+        select(gutenberg_id) %>%
+        # as.numeric() %>%
+        gutenberg_download(meta_fields = "title",
+                           strip = TRUE,
+                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+        unnest_tokens(word, text) %>%
+        anti_join(stop_words) %>%
+        mutate(word = str_extract(word, "[a-z']+")) %>%
+        filter(word %in% c(str_to_lower(input$text),
+                           input$text)) %>%
+        group_by(title) %>%
+        summarise(count = n())
     })
     
     ###Input 3
-
-    # sa_reactive <- eventReactive(input$choose_word, {
-    #     books %>%
-    #         filter(title %in% input$pick_book2) %>%
-    #         inner_join(get_sentiments("bing")) %>%
-    #         count(word, sentiment, sort = TRUE) %>%
-    #         ungroup() %>%
-    #         group_by(sentiment) %>%
-    #         top_n(10) %>%
-    #         ungroup() %>%
-    #         mutate(word = reorder(word, n))
-    # 
-    # })
-    
-    ###Input 4
     
     pb_reactive <- eventReactive(input$choose,{
       all_books %>%
-        filter(title %in% input$pick_book3) %>% # changes the users input to title case
+        filter(title %in% c(input$pick_book3,
+                            str_to_title(input$pick_book3),
+                            str_to_lower(input$pick_book3))) %>% # changes the users input to title case
         select(gutenberg_id) %>%
         as.numeric() %>%
         gutenberg_download(meta_fields = "title",
@@ -228,11 +281,16 @@ server <- function(input, output) {
         mutate(word = reorder(word, n))
     })
     
-    ###Input 5
+    ###Input 4
     
     ts_reactive <- eventReactive(input$choose2,{
       all_books %>%
-        filter(title %in% input$pick_book4) %>%  # changes the users input to title case
+        filter(title %in% c(input$pick_book4, 
+                            str_to_title(input$pick_book4),
+                            str_to_lower(input$pick_book4))) %>%  
+       # shinyFeedback::feedbackWarning("n", (is.null(title_chosen) == TRUE), 
+       #                               "Please enter a valid title!")
+       #  req(title_chosen)
         select(gutenberg_id) %>%
         as.numeric() %>%
         gutenberg_download(meta_fields = "title",
@@ -241,66 +299,50 @@ server <- function(input, output) {
         unnest_tokens(word, text) %>%
         anti_join(stop_words) %>%
         mutate(word = str_extract(word, "[a-z']+")) %>%
-        full_join(lexicon_nrc_vad(), by = c("word" = "Word")) %>%
+        inner_join(lexicon_nrc_vad(), by = c("word" = "Word")) %>%
         drop_na(Valence) %>% 
         mutate(index = seq(1, length(word) ,1)) %>% 
         mutate(moving_avg = as.numeric(slide(Valence, 
                                              mean, 
                                              .before = (input$moving_avg - 1)/2 , 
                                              .after = (input$moving_avg - 1)/2 )))
-        # mutate(pos_neg = case_when(
-        #   moving_avg > 0.5 ~ "Positive",
-        #   moving_avg <= 0.5 ~ "Negative"
-        # ))
-
+      
     })
+
+    ### output 1
     
-    ### input table for book
-    table_reactive <- reactive({
-      books_initial %>% 
-        distinct(title, .keep_all = TRUE) %>% 
-        select(c(title, author))
+    output$wc_plot <- renderPlot({
+      ggplot(data = wc_reactive(), aes(label = word)) +
+        geom_text_wordcloud(aes(size = n)) +
+        scale_size_area(max_size = 6) +
+        theme_void()
+      
       
     })
     
-    
-    ### output 1
-    output$wc_plot <- renderPlot({
-      wc_reactive() %>%
-        select(word) %>%
-        count(word) %>%
-        with(wordcloud(
-          word,
-          n,
-          max.words = 100,
-          colors = c(
-            "mediumseagreen",
-            "cornflowerblue",
-            "darkorange",
-            "mediumorchid4",
-            "royalblue",
-            "salmon2",
-            "violetred1",
-            "red2"
-          )
-        ))
-    })
     ### output 2
     output$words_plot <- renderPlot({
         ggplot(data = words_reactive(), aes(x = title, y = count)) +
             geom_col(aes(fill = title), show.legend = FALSE) + 
-        coord_flip() 
+            coord_flip() +
+            labs(x = "Title",
+                 y = "Counts",
+                 title = paste('Number of times the word',input$text,'shows up in the selected books.')) +
+        theme_minimal() +
+        theme(axis.text = element_text(size = 15,
+                                         face = "bold",
+                                         color = "black"),
+              axis.title.y = element_blank(),
+              axis.title.x = element_text(face = "bold",
+                                          color = "black",
+                                          size = 16),
+              plot.title = element_text(face = "bold",
+                                          size = 18),
+              panel.grid.minor = element_blank(),
+              panel.grid.major.y = element_blank())
     })
+
     ### output 3
-    
-    # output$sa_plot <- renderPlot({
-    #     ggplot(sa_reactive(), aes(n, word, fill = sentiment)) +
-    #         geom_col(show.legend = FALSE) +
-    #         facet_wrap(~sentiment, scales = "free_y") +
-    #         labs(x = "Contribution to sentiment",
-    #              y = NULL)
-    # })
-    ### output 4
     
     output$pb_plot <- renderPlot({
       ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
@@ -309,7 +351,7 @@ server <- function(input, output) {
         labs(x = "Contribution to sentiment",
              y = NULL)
     })
-    ### output 5
+    ### output 4
     output$ts_plot <- renderPlot({
       ggplot(data = ts_reactive(), aes(x = index, color = moving_avg)) +
         geom_line(aes(y = moving_avg), size = 1) +
@@ -317,9 +359,6 @@ server <- function(input, output) {
         scale_color_viridis("viridis")
     })
     
-    output$table_words <- renderTable(
-      table_reactive()
-    )
 }
 
 # Run the application 
