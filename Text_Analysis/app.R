@@ -9,6 +9,7 @@ library(slider)
 library(viridis)
 library(DT)
 library(ggwordcloud)
+library(shinyWidgets)
 
 all_books1 <- gutenberg_works() %>%
   clean_names() %>%
@@ -32,10 +33,15 @@ all_books_table <- all_books1 %>%
   rename(Title = title,
          `Author (Last, First)` = author)
 
+# subset all the colors, without the numbers. 
+all_colors <- colors()
+my_colors <-  all_colors[!str_detect(colors(), "[0-9']+")]
+
 
 ui <- fluidPage(theme = shinytheme("flatly"),
                 shinyFeedback::useShinyFeedback(),
                 navbarPage("What's in a Word?",
+                           ##### 1
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
                                     mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br>  <h4>This Shiny App will take you on a journey through American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
@@ -52,15 +58,35 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                                                  label = "Enter a title",
                                                                  value = ""
                                                                  ),
-                                                     radioButtons(inputId = "radio_wc",
-                                                                  label = "Choose number of words in your word cloud",
-                                                                  choices = list(
-                                                                    "25" = 25,
-                                                                    "50" = 50,
-                                                                    "75" = 75,
-                                                                    "100" = 100
-                                                                  )
+                                                     radioButtons(inputId = "wc_shape",
+                                                                  label = "Choose word cloud shape",
+                                                                  choices = list("circle" = "circle", 
+                                                                                 "diamond" = "diamond",
+                                                                                 "square" = "square", 
+                                                                                 "triangle" = "triangle-upright",
+                                                                                 "pentagon" = "pentagon" , 
+                                                                                 "star" = "star")
                                                                   ),
+                                                     knobInput(inputId = "wc_count",
+                                                               label = "Choose number of words in your word cloud",
+                                                               value = 50,
+                                                               min = 10,
+                                                               max = 100,
+                                                               step = 1,
+                                                               thickness = 0.31,
+                                                               displayPrevious = TRUE,
+                                                               lineCap = "round",
+                                                               fgColor = "dodgerblue",
+                                                               inputColor = "dodgerblue",
+                                                               post = " words",
+                                                               fontSize = "21px"
+                                                       
+                                                     ),
+                                                     selectInput(inputId = "pick_color",
+                                                                 label = "Choose a color for your word cloud",
+                                                                 choices = my_colors,
+                                                                 selected = "dodgerblue"
+                                                                 ),
                                                      actionButton("choose_word_cloud", "Show me!"),
                                                      fluidRow(column(DT::dataTableOutput("all_books_tab1"),
                                                                      width = 12)
@@ -70,7 +96,8 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                                   plotOutput("wc_plot"))
                                     )),
                            ### 3
-                           tabPanel("Word-Count", 
+                           tabPanel(title = "Word-Count", 
+                                    icon = icon("calculator"),
                                     sidebarLayout(
                                         sidebarPanel(  "On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
                                                        textInput(inputId = "pick_book_wc1",
@@ -101,13 +128,21 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                     )
                                     ),
                            ### 4
-                           tabPanel("Sentiment Analysis",
+                           tabPanel(title = "Sentiment Analysis",
+                                    icon = icon("smile-beam"),
                                     sidebarLayout(
                                       sidebarPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
                                                    textInput(inputId = "pick_book3",
                                                              label = "Enter a title:",
                                                              value = ""
                                                    ),
+                                                   radioButtons(inputId = "pick_sentiment",
+                                                                label = "Choose a sentiment lexicon",
+                                                                choices = list(
+                                                                  "bing" = "bing",
+                                                                  "nrc" = "nrc"
+                                                                )
+                                                                ),
                                                    actionButton("choose", "Show me!"),
                                                    fluidRow(column(DT::dataTableOutput("all_books_tab3"),
                                                                    width = 12)
@@ -120,7 +155,8 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                     ))
                            ,
                            ### 5
-                           tabPanel("Sentiment Trajectory", 
+                           tabPanel(title = "Sentiment Trajectory", 
+                                    icon = icon("chart-line"),
                                     sidebarLayout(
                                       sidebarPanel("",
                                                    textInput(inputId = "pick_book4",
@@ -160,7 +196,8 @@ server <- function(input, output) {
     ### table on main page
     output$all_books <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
-                    options = list(lengthMenu = list(c(5,10),c('5','10')),
+                    options = list(lengthMenu = list(c(5, 10, 25),
+                                                     c('5','10', '25')),
                                    dom = 'ltipr'),
                     style = "bootstrap",
                     filter = "top",
@@ -225,7 +262,7 @@ server <- function(input, output) {
         anti_join(stop_words) %>%
         mutate(word = str_extract(word, "[a-z']+")) %>% 
         count(word) %>% 
-        slice_max(n, n = as.numeric(input$radio_wc))
+        slice_max(n, n = as.numeric(input$wc_count))
     
     })
     ### Input 2
@@ -272,7 +309,7 @@ server <- function(input, output) {
         unnest_tokens(word, text) %>%
         anti_join(stop_words) %>%
         mutate(word = str_extract(word, "[a-z']+")) %>%
-        inner_join(get_sentiments("bing")) %>%
+        inner_join(get_sentiments(input$pick_sentiment)) %>%
         count(word, sentiment, sort = TRUE) %>%
         ungroup() %>% 
         group_by(sentiment) %>%
@@ -313,8 +350,10 @@ server <- function(input, output) {
     
     output$wc_plot <- renderPlot({
       ggplot(data = wc_reactive(), aes(label = word)) +
-        geom_text_wordcloud(aes(size = n)) +
-        scale_size_area(max_size = 6) +
+        geom_text_wordcloud(aes(size = n),
+                            color = input$pick_color,
+                            shape = input$wc_shape) +
+        scale_size_area(max_size = 8) +
         theme_void()
       
       
@@ -347,9 +386,23 @@ server <- function(input, output) {
     output$pb_plot <- renderPlot({
       ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
         geom_col(show.legend = FALSE) +
-        facet_wrap(~sentiment, scales = "free_y") +
+        facet_wrap(~sentiment, scales = "free") +
         labs(x = "Contribution to sentiment",
-             y = NULL)
+             title = paste("Sentiment Analysis for", 
+                           str_to_title(input$pick_book3))) +
+        theme_minimal() +
+        theme(axis.text = element_text(size = 9,
+                                       face = "bold",
+                                       color = "black"),
+              axis.title.y = element_blank(),
+              axis.title.x = element_text(face = "bold",
+                                          color = "black",
+                                          size = 13),
+              plot.title = element_text(face = "bold",
+                                        size = 18),
+              panel.grid.minor.y = element_blank(),
+              panel.grid.major.y = element_blank())
+        
     })
     ### output 4
     output$ts_plot <- renderPlot({
