@@ -1,6 +1,7 @@
 library(shiny)
 library(tidyverse)
 library(tidytext)
+library(here)
 library(gutenbergr)
 library(janitor)
 library(shinythemes)
@@ -10,6 +11,7 @@ library(viridis)
 library(DT)
 library(ggwordcloud)
 library(shinyWidgets)
+library(bslib)
 
 all_books1 <- gutenberg_works() %>%
   clean_names() %>%
@@ -18,7 +20,7 @@ all_books1 <- gutenberg_works() %>%
   drop_na(author, title, gutenberg_author_id) %>% 
   dplyr::select(gutenberg_id, title, author)
 
-# choose only american and english lit
+# choose only American and English lit
 top_subj <- gutenberg_subjects %>%
   filter(subject %in% c("PS","PR")) 
 
@@ -37,17 +39,48 @@ all_books_table <- all_books1 %>%
 all_colors <- colors()
 my_colors <-  all_colors[!str_detect(colors(), "[0-9']+")]
 
+# test id top 100 downloaded books work 
+# top_100 <- read_table(here("data", "top_ebooks_30.txt"),
+#                       col_names = FALSE)  %>% 
+#   clean_names() %>% 
+#   separate(x1, c("title", "author"), sep ="\\s[by]\\s", remove = FALSE) %>% 
+#   select(title)
 
-ui <- fluidPage(theme = shinytheme("flatly"),
+my_theme <- bs_theme(
+  bg = "bisque",
+  fg = "navy",
+  primary = "green",
+  secondary = "red",
+  base_font = font_google("Akaya Kanadaka")
+)
+
+flatly_theme <- bs_theme(version = 3, 
+                         bootswatch = "flatly", 
+                         base_font = font_google("Antic Didone"),
+                         primary = "#663300",
+                         success = "darkslategrey") # primary works here, so does success!
+
+# shinytheme("flatly")
+
+ui <- fluidPage(theme = flatly_theme,
                 shinyFeedback::useShinyFeedback(),
                 navbarPage("What's in a Word?",
                            ##### 1
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
-                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br>  <h4>This Shiny App will take you on a journey through American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
+                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
                                     fluidRow(column(DT::dataTableOutput("all_books"),
                                                     width = 12)
-                                             )
+                                             ),
+                                    mainPanel(HTML('<h3> References: </h3> <br><br>  
+                                                   
+                                                  <ol start="1">  
+                                                  
+                                                  <li> Silge, J., & Robinson, D. (2017). <em>Text mining with R: A tidy approach.</em> "OReilly Media, Inc.". <a href="https://www.tidytextmining.com/index.html">https://www.tidytextmining.com/index.html</a> </li>  
+                                                  <li> Mohammad, S. M., & Turney, P. D. (2013). Crowdsourcing a word–emotion association lexicon. <em>Computational Intelligence</em>, 29(3), 436-465. </li> 
+                                                  <li> Robinson, D. (2016). gutenbergr: Download and Process Public Domain Works from Project Gutenberg. </li>   
+                                                  <li> Hu, M. and Liu, B. (2004, August). Mining and summarizing customer reviews. <em>Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery & Data Mining.</em> </li>  
+                                                  <li> Moving average. (2021, March 4). In Wikipedia. <a href="https://en.wikipedia.org/wiki/Moving_average">https://en.wikipedia.org/wiki/Moving_average</a> </li>  </ol> '))
                                     ),
                            ### 2
                            tabPanel(title = " Word Cloud",
@@ -71,7 +104,7 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                                                label = "Choose number of words in your word cloud",
                                                                value = 50,
                                                                min = 10,
-                                                               max = 100,
+                                                               max = 80,
                                                                step = 1,
                                                                thickness = 0.31,
                                                                displayPrevious = TRUE,
@@ -79,7 +112,8 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                                                fgColor = "dodgerblue",
                                                                inputColor = "dodgerblue",
                                                                post = " words",
-                                                               fontSize = "21px"
+                                                               fontSize = "21px",
+                                                               immediate = FALSE
                                                        
                                                      ),
                                                      selectInput(inputId = "pick_color",
@@ -139,8 +173,8 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                                    radioButtons(inputId = "pick_sentiment",
                                                                 label = "Choose a sentiment lexicon",
                                                                 choices = list(
-                                                                  "bing" = "bing",
-                                                                  "nrc" = "nrc"
+                                                                  "bing: binary, categorizes words into either positive or negative" = "bing",
+                                                                  "nrc: categorizes words into one of eight emotions, and as either positive or negative affect" = "nrc"
                                                                 )
                                                                 ),
                                                    actionButton("choose", "Show me!"),
@@ -249,6 +283,7 @@ server <- function(input, output) {
     
     ### Input 1
     wc_reactive <- eventReactive(input$choose_word_cloud,{
+      req(input$pick_book)
       all_books %>%
         filter(title %in% c(input$pick_book,
                             str_to_lower(input$pick_book),
@@ -261,12 +296,13 @@ server <- function(input, output) {
         unnest_tokens(word, text) %>%
         anti_join(stop_words) %>%
         mutate(word = str_extract(word, "[a-z']+")) %>% 
-        count(word) %>% 
-        slice_max(n, n = as.numeric(input$wc_count))
+        count(word, title) %>% 
+        slice_max(n, n = 100)
     
     })
     ### Input 2
     words_reactive <-  eventReactive(input$choose_word,{
+      req(input$text)
       all_books %>%
         filter(title %in% c(input$pick_book_wc1,
                             str_to_lower(input$pick_book_wc1),
@@ -290,13 +326,14 @@ server <- function(input, output) {
         mutate(word = str_extract(word, "[a-z']+")) %>%
         filter(word %in% c(str_to_lower(input$text),
                            input$text)) %>%
-        group_by(title) %>%
+        group_by(title, word) %>%
         summarise(count = n())
     })
     
     ###Input 3
     
     pb_reactive <- eventReactive(input$choose,{
+      req(input$pick_book3)
       all_books %>%
         filter(title %in% c(input$pick_book3,
                             str_to_title(input$pick_book3),
@@ -310,17 +347,19 @@ server <- function(input, output) {
         anti_join(stop_words) %>%
         mutate(word = str_extract(word, "[a-z']+")) %>%
         inner_join(get_sentiments(input$pick_sentiment)) %>%
-        count(word, sentiment, sort = TRUE) %>%
+        count(word, sentiment, title, sort = TRUE) %>%
         ungroup() %>% 
         group_by(sentiment) %>%
-        top_n(10) %>%
+        top_n(8) %>%
         ungroup() %>%
-        mutate(word = reorder(word, n))
+        mutate(word = reorder(word, n)) %>% 
+        mutate(dict = input$pick_sentiment)
     })
     
     ###Input 4
     
     ts_reactive <- eventReactive(input$choose2,{
+      req(input$pick_book4)
       all_books %>%
         filter(title %in% c(input$pick_book4, 
                             str_to_title(input$pick_book4),
@@ -346,15 +385,19 @@ server <- function(input, output) {
       
     })
 
-    ### output 1
+    ### output 1, input$wc_count
     
     output$wc_plot <- renderPlot({
-      ggplot(data = wc_reactive(), aes(label = word)) +
-        geom_text_wordcloud(aes(size = n),
+      ggplot(data = head(wc_reactive(), input$wc_count), 
+             aes(label = head(word, input$wc_count ))) +
+        geom_text_wordcloud(aes(size = head(n, input$wc_count)),
                             color = input$pick_color,
                             shape = input$wc_shape) +
-        scale_size_area(max_size = 8) +
-        theme_void()
+        scale_size_area(max_size = 10) +
+        theme_void() +
+        labs(caption = paste('Wordcloud for', wc_reactive()[1,"title"],
+                           'with',input$wc_count, "words.")) +
+        theme(plot.caption = element_text(size = 16))
       
       
     })
@@ -366,7 +409,7 @@ server <- function(input, output) {
             coord_flip() +
             labs(x = "Title",
                  y = "Counts",
-                 title = paste('Number of times the word',input$text,'shows up in the selected books.')) +
+                 title = paste('Number of times the word', words_reactive()[1, "word"], 'shows up in the selected books.')) +
         theme_minimal() +
         theme(axis.text = element_text(size = 15,
                                          face = "bold",
@@ -383,33 +426,86 @@ server <- function(input, output) {
 
     ### output 3
     
-    output$pb_plot <- renderPlot({
-      ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
-        geom_col(show.legend = FALSE) +
-        facet_wrap(~sentiment, scales = "free") +
-        labs(x = "Contribution to sentiment",
-             title = paste("Sentiment Analysis for", 
-                           str_to_title(input$pick_book3))) +
-        theme_minimal() +
-        theme(axis.text = element_text(size = 9,
-                                       face = "bold",
-                                       color = "black"),
-              axis.title.y = element_blank(),
-              axis.title.x = element_text(face = "bold",
-                                          color = "black",
-                                          size = 13),
-              plot.title = element_text(face = "bold",
-                                        size = 18),
-              panel.grid.minor.y = element_blank(),
-              panel.grid.major.y = element_blank())
-        
-    })
+    output$pb_plot <- renderPlot({ 
+      dictionary <- as.character(pb_reactive()[1, "dict"])
+      switch(dictionary,
+             
+           nrc = (ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
+             geom_col(show.legend = FALSE) +
+             facet_wrap(~sentiment, scales = "free") +
+             labs(x = "Count",
+                  title = paste("Sentiment Analysis for", 
+                                pb_reactive()[1,"title"])) +
+             theme_minimal() +
+               theme(axis.text.x = element_text(size = 12,
+                                              face = "bold",
+                                              color = "black"),
+                     axis.text.y = element_text(size = 10.5,
+                                                face = "bold"),
+                     axis.title.y = element_blank(),
+                     axis.title.x = element_text(face = "bold",
+                                                 color = "black",
+                                                 size = 13),
+                     plot.title = element_text(face = "bold",
+                                               size = 19),
+                     panel.grid.minor.y = element_blank(),
+                     panel.grid.major.y = element_blank(),
+                     strip.text = element_text(size = 13,
+                                               face = "bold",
+                                               color = "black"))),
+           
+           bing = (ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
+                     geom_col(show.legend = FALSE) +
+                     facet_wrap(~sentiment, scales = "free") +
+                     scale_fill_manual(values = c("firebrick", "forestgreen")) +
+                     labs(x = "Count",
+                          title = paste("Sentiment Analysis for",
+                                        pb_reactive()[1,"title"])) +
+                     theme_minimal() +
+                     theme(axis.text = element_text(size = 15,
+                                                    face = "bold",
+                                                    color = "black"),
+                           axis.title.y = element_blank(),
+                           axis.title.x = element_text(face = "bold",
+                                                       color = "black",
+                                                       size = 16),
+                           plot.title = element_text(face = "bold",
+                                                     size = 19),
+                           panel.grid.minor.y = element_blank(),
+                           panel.grid.major.y = element_blank(),
+                           strip.text = element_text(size = 15,
+                                                     face = "bold",
+                                                     color = "black")))
+      )
+    })  
     ### output 4
     output$ts_plot <- renderPlot({
       ggplot(data = ts_reactive(), aes(x = index, color = moving_avg)) +
         geom_line(aes(y = moving_avg), size = 1) +
-        geom_abline(aes(intercept = 0.5, slope = 0), col = "black", alpha = 0.7) +
-        scale_color_viridis("viridis")
+        geom_abline(aes(intercept = 0.5, slope = 0), 
+                    col = "black", alpha = 0.7) +
+        scale_color_viridis() +
+        # scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+        labs(x = "Novel Progression",
+             y = "NRC Valence Sentiment Moving Average",
+             caption =  paste('Using only the valence scores from the NRC Valence, Arousal, and Dominance\nLexicon, this graph depicts the sentiment of',  ts_reactive()[1, "title"] ,'as the novel progresses.\n\n*Note: Valence scores can range from 0 (displeasure) to 1 (pleasure), but tend to start\nabove 0.5 because books usually contain more positive than negative words.'),
+             color = "Valence Score") +
+        theme_minimal() +
+        theme(plot.caption = element_text(size = 15,
+                                         hjust = 0),
+              axis.title = element_text(face = "bold",
+                                          color = "black",
+                                          size = 12),
+              axis.text.x = element_blank(),
+              axis.text.y = element_text(face = "bold",
+                                         size = 11),
+              
+              panel.grid.minor = element_blank(),
+              panel.grid.major.x = element_blank(),
+              legend.title = element_text(size = 12,
+                                          face = "bold"),
+              legend.text = element_text(face = "bold",
+                                         size = 11))
     })
     
 }
