@@ -12,6 +12,7 @@ library(DT)
 library(ggwordcloud)
 library(shinyWidgets)
 library(bslib)
+library(shinyFeedback)
 
 all_books1 <- gutenberg_works() %>%
   clean_names() %>%
@@ -58,9 +59,8 @@ flatly_theme <- bs_theme(version = 3,
                          bootswatch = "flatly", 
                          base_font = font_google("Antic Didone"),
                          primary = "#663300",
-                         success = "darkslategrey") # primary works here, so does success!
+                         success = "darkslategrey") 
 
-# shinytheme("flatly")
 
 ui <- fluidPage(theme = flatly_theme,
                 shinyFeedback::useShinyFeedback(),
@@ -284,6 +284,12 @@ server <- function(input, output) {
     ### Input 1
     wc_reactive <- eventReactive(input$choose_word_cloud,{
       req(input$pick_book)
+      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book,
+                                                        str_to_title(input$pick_book),
+                                                        str_to_lower(input$pick_book)))
+      shinyFeedback::feedbackDanger("pick_book", !is_here, "Unknown title, please double check your spelling")
+      req(is_here, cancelOutput = TRUE)
+      
       all_books %>%
         filter(title %in% c(input$pick_book,
                             str_to_lower(input$pick_book),
@@ -303,6 +309,24 @@ server <- function(input, output) {
     ### Input 2
     words_reactive <-  eventReactive(input$choose_word,{
       req(input$text)
+      req(c(input$pick_book_wc1, input$pick_book_wc2,
+            input$pick_book_wc3, input$pick_book_wc4))
+
+      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book_wc1,
+                                                        str_to_lower(input$pick_book_wc1),
+                                                        str_to_title(input$pick_book_wc1),
+                                                        input$pick_book_wc2,
+                                                        str_to_lower(input$pick_book_wc2),
+                                                        str_to_title(input$pick_book_wc2),
+                                                        input$pick_book_wc3,
+                                                        str_to_lower(input$pick_book_wc3),
+                                                        str_to_title(input$pick_book_wc3),
+                                                        input$pick_book_wc4,
+                                                        str_to_lower(input$pick_book_wc4),
+                                                        str_to_title(input$pick_book_wc4)))
+      shinyFeedback::feedbackDanger("text", !is_here, "Please enter a valid title in one of the four boxes")
+      req(is_here, cancelOutput = TRUE)
+      
       all_books %>%
         filter(title %in% c(input$pick_book_wc1,
                             str_to_lower(input$pick_book_wc1),
@@ -334,6 +358,12 @@ server <- function(input, output) {
     
     pb_reactive <- eventReactive(input$choose,{
       req(input$pick_book3)
+      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book3,
+                                   str_to_title(input$pick_book3),
+                                   str_to_lower(input$pick_book3)))
+      shinyFeedback::feedbackDanger("pick_book3", !is_here, "Unknown title")
+      req(is_here, cancelOutput = TRUE)
+      
       all_books %>%
         filter(title %in% c(input$pick_book3,
                             str_to_title(input$pick_book3),
@@ -360,6 +390,12 @@ server <- function(input, output) {
     
     ts_reactive <- eventReactive(input$choose2,{
       req(input$pick_book4)
+      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book4,
+                                                        str_to_title(input$pick_book4),
+                                                        str_to_lower(input$pick_book4)))
+      shinyFeedback::feedbackDanger("pick_book4", !is_here, "Unknown title, please double check your spelling")
+      req(is_here, cancelOutput = TRUE)
+      
       all_books %>%
         filter(title %in% c(input$pick_book4, 
                             str_to_title(input$pick_book4),
@@ -385,7 +421,7 @@ server <- function(input, output) {
       
     })
 
-    ### output 1, input$wc_count
+    ### output 1
     
     output$wc_plot <- renderPlot({
       ggplot(data = head(wc_reactive(), input$wc_count), 
