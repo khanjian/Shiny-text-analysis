@@ -88,11 +88,11 @@ ui <- fluidPage(theme = flatly_theme,
                                     sidebarLayout(
                                         sidebarPanel("",
                                                      textInput(inputId = "pick_book",
-                                                                 label = "Enter a title",
+                                                                 label = "Enter a book title",
                                                                  value = ""
                                                                  ),
                                                      radioButtons(inputId = "wc_shape",
-                                                                  label = "Choose word cloud shape",
+                                                                  label = "Choose a shape for your word cloud",
                                                                   choices = list("circle" = "circle", 
                                                                                  "diamond" = "diamond",
                                                                                  "square" = "square", 
@@ -101,7 +101,7 @@ ui <- fluidPage(theme = flatly_theme,
                                                                                  "star" = "star")
                                                                   ),
                                                      knobInput(inputId = "wc_count",
-                                                               label = "Choose number of words in your word cloud",
+                                                               label = "Choose the number of words that will show up in your word cloud",
                                                                value = 50,
                                                                min = 10,
                                                                max = 80,
@@ -126,14 +126,14 @@ ui <- fluidPage(theme = flatly_theme,
                                                                      width = 12)
                                                      )
                                                      ),
-                                        mainPanel("Here’s a word cloud showing the most popular words that show up in your book! The largest words are the ones that show up the most often. This widget allows you to select a book to view the top most frequently occurring words. The larger the word in the cloud, the more often it appears in the text!",
+                                        mainPanel("Here’s a word cloud showing the most popular words that show up in the book you've entered. The larger the word in the cloud, the more often it appears in the text!",
                                                   plotOutput("wc_plot"))
                                     )),
                            ### 3
                            tabPanel(title = "Word-Count", 
                                     icon = icon("calculator"),
                                     sidebarLayout(
-                                        sidebarPanel(  "On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
+                                        sidebarPanel(  "On this page, enter a word - ANY word! - to compare how common it is in up to 4 different books. For example, enter the word 'love' and view how many times it occurs in each of your specified books!",
                                                        textInput(inputId = "pick_book_wc1",
                                                                  label = "Enter first title",
                                                                  value = ""),
@@ -147,7 +147,7 @@ ui <- fluidPage(theme = flatly_theme,
                                                                  label = "Enter fourth title",
                                                                  value = ""),
                                                        textInput(inputId = "text",
-                                                                 label = "Enter a word!",
+                                                                 label = "Enter a word",
                                                                  value = ""),
                                                        
                                                        actionButton("choose_word", "Show me!"),
@@ -165,7 +165,7 @@ ui <- fluidPage(theme = flatly_theme,
                            tabPanel(title = "Sentiment Analysis",
                                     icon = icon("smile-beam"),
                                     sidebarLayout(
-                                      sidebarPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
+                                      sidebarPanel("On this page, enter a book title to explore the frequency of positively and negatively associated words that show up in that book.",
                                                    textInput(inputId = "pick_book3",
                                                              label = "Enter a title:",
                                                              value = ""
@@ -197,7 +197,7 @@ ui <- fluidPage(theme = flatly_theme,
                                                              label = "Enter a title:",
                                                              value = ""
                                                    ),
-                                                   HTML("In statistics, a moving average is a calculation to analyze data points by creating a series of averages of different subsets of the full data set."),
+                                                   HTML("In statistics, a moving average is a calculation used to analyze data points by creating a series of averages of different subsets of the full dataset."),
                                                    sliderInput(inputId = "moving_avg",
                                                                label = "Choose a moving average window:",
                                                                min = 51, 
@@ -215,9 +215,9 @@ ui <- fluidPage(theme = flatly_theme,
                                       
                                       mainPanel(HTML("Type in a book from the Project GutenbergR database below and see how sentiment changes throughout the novel! <br>
 
-Wherever the graph dips and peaks are likely to be major changes occurring in the book’s plot: a dip indicates a very negative part of the story, where a peak indicates a very positive part of the story. <br>
+Wherever the graph dips and peaks are likely to be major changes occurring in the book’s plot: a dip indicates a very negative part of the story, whereas a peak indicates a very positive part of the story. <br>
 
-Read your book to see if the plot matches up with what you find in the sentiment analysis!"),
+Read (or Sparknote) your book to see if its plot matches up with what you find in the sentiment analysis!"),
                                                 plotOutput("ts_plot"))
                                       
                                     ))
@@ -444,7 +444,7 @@ server <- function(input, output) {
             geom_col(aes(fill = title), show.legend = FALSE) + 
             coord_flip() +
             labs(x = "Title",
-                 y = "Counts",
+                 y = "Number of occurences",
                  title = paste('Number of times the word', words_reactive()[1, "word"], 'shows up in the selected books.')) +
         theme_minimal() +
         theme(axis.text = element_text(size = 15,
@@ -469,7 +469,7 @@ server <- function(input, output) {
            nrc = (ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
              geom_col(show.legend = FALSE) +
              facet_wrap(~sentiment, scales = "free") +
-             labs(x = "Count",
+             labs(x = "Number of occurences in book",
                   title = paste("Sentiment Analysis for", 
                                 pb_reactive()[1,"title"])) +
              theme_minimal() +
@@ -494,7 +494,7 @@ server <- function(input, output) {
                      geom_col(show.legend = FALSE) +
                      facet_wrap(~sentiment, scales = "free") +
                      scale_fill_manual(values = c("firebrick", "forestgreen")) +
-                     labs(x = "Count",
+                     labs(x = "Number of occurences in book",
                           title = paste("Sentiment Analysis for",
                                         pb_reactive()[1,"title"])) +
                      theme_minimal() +
