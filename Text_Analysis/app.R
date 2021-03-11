@@ -89,6 +89,9 @@ flatly_theme <- bs_theme(version = 3,
                          primary = "#663300",
                          success = "lightslategrey") 
 
+# lib_pic <- jpeg::readJPEG(here("images",
+#                                "library.jpg")) 
+
 
 ui <- fluidPage(theme = flatly_theme,
                 shinyFeedback::useShinyFeedback(),
@@ -96,9 +99,15 @@ ui <- fluidPage(theme = flatly_theme,
                            ##### 1
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
-                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through English and American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
+                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br> By: Roupen Khanjian, Michelle Handy, Roni Shen <br><br>"),
+                                              img(src = "library.jpg",
+                                                  height = "400px", width = "800px",
+                                                  class="center"),
+                                              HTML("<br><br>"),
+                                              HTML("<h4>This Shiny App will take you on a journey through English and American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>"),
+                                              HTML("<br><br>")),
                                     fluidRow(column(DT::dataTableOutput("all_books"),
-                                                    width = 12)
+                                                    width = 11)
                                              ),
                                     mainPanel(HTML('<h3> References: </h3> <br><br>  
                                                    
@@ -108,7 +117,9 @@ ui <- fluidPage(theme = flatly_theme,
                                                   <li> Mohammad, S. M., & Turney, P. D. (2013). Crowdsourcing a word–emotion association lexicon. <em>Computational Intelligence</em>, 29(3), 436-465. </li> 
                                                   <li> Robinson, D. (2016). gutenbergr: Download and Process Public Domain Works from Project Gutenberg. </li>   
                                                   <li> Hu, M. and Liu, B. (2004, August). Mining and summarizing customer reviews. <em>Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery & Data Mining.</em> </li>  
-                                                  <li> Moving average. (2021, March 4). In Wikipedia. <a href="https://en.wikipedia.org/wiki/Moving_average">https://en.wikipedia.org/wiki/Moving_average</a> </li>  </ol> '))
+                                                  <li> Moving average. (2021, March 4). In Wikipedia. <a href="https://en.wikipedia.org/wiki/Moving_average">https://en.wikipedia.org/wiki/Moving_average</a> </li>
+                                                  <li> PICTURE </li> 
+                                                  </ol> '))
                                     ),
                            ### 2
                            tabPanel(title = " Word Cloud",
@@ -154,7 +165,7 @@ ui <- fluidPage(theme = flatly_theme,
                                                                      width = 12)
                                                      )
                                                      ),
-                                        mainPanel("Here’s a word cloud showing the most popular words that show up in your book! This widget allows you to select a book to view the most frequently occurring words. The larger the word in the cloud, the more often it appears in the text!",
+                                        mainPanel(HTML("<h4>This widget allows you to view the most frequently occuring words in a book of your choosing. The larger the word in the cloud, the more often it appears in the text! Here’s a word cloud showing the most popular words that show up in your book!</h4>"),
                                                   plotOutput("wc_plot"))
                                     )),
                            ### 3
@@ -175,9 +186,8 @@ ui <- fluidPage(theme = flatly_theme,
                                                                  label = "Enter fourth title",
                                                                  value = ""),
                                                        textInput(inputId = "text",
-                                                                 label = "Enter a word!",
+                                                                 label = HTML("<br><br>Enter a word!"),
                                                                  value = ""),
-                                                       
                                                        actionButton("choose_word", "Show me!"),
                                                        fluidRow(column(DT::dataTableOutput("all_books_tab2"),
                                                                        width = 12)
@@ -186,7 +196,7 @@ ui <- fluidPage(theme = flatly_theme,
                                         ), 
                                                      
                                 
-                                        mainPanel("On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
+                                        mainPanel(HTML("<h4>On this page, enter a word (any word!) to see how often it appears in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!</h4>"),
                                                   plotOutput("words_plot"))
                                     )
                                     ),
@@ -202,8 +212,8 @@ ui <- fluidPage(theme = flatly_theme,
                                                    radioButtons(inputId = "pick_sentiment",
                                                                 label = "Choose a sentiment lexicon",
                                                                 choices = list(
-                                                                  "bing: binary, categorizes words into either positive or negative" = "bing",
-                                                                  "nrc: categorizes words into one of eight emotions, and as either positive or negative affect" = "nrc"
+                                                                  "bing: categorizes words into either positive or negative affect." = "bing",
+                                                                  "nrc: categorizes words into one of eight emotions, and as either positive or negative affect." = "nrc"
                                                                 )
                                                                 ),
                                                    actionButton("choose", "Show me!"),
@@ -213,7 +223,7 @@ ui <- fluidPage(theme = flatly_theme,
                                       ),
                                       
                                       
-                                      mainPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
+                                      mainPanel(HTML("<h4>On this page, select a book to explore the frequency of negatively and positively associated words. The most common words in the book that correlate with positive or negative sentiments will appear at the top!</h4>"),
                                                 plotOutput("pb_plot"))
                                     ))
                            ,
@@ -242,18 +252,27 @@ ui <- fluidPage(theme = flatly_theme,
                                       ),
                                       
                                       
-                                      mainPanel(HTML("Type in a book from the Project GutenbergR database below and see how sentiment changes throughout the novel! <br>
+                                      mainPanel(HTML("<h4>Type in a book from the Project GutenbergR database below and see how sentiment changes throughout the novel! <br>
 
-Wherever the graph dips and peaks are likely to be major changes occurring in the book’s plot: a dip indicates a very negative part of the story, where a peak indicates a very positive part of the story. <br>
+Wherever the graph dips and peaks are likely to be major changes occurring in the book’s plot: a dip indicates a negative part of the story, where a peak indicates a positive part of the story. <br>
 
-Read your book to see if the plot matches up with what you find in the sentiment analysis!"),
+Read your book to see if the plot matches up with what you find in the sentiment analysis!</h4>"),
                                                 plotOutput("ts_plot"))
                                       
-                                    ))
+                                    )),
+                            ### 6
+                            tabPanel(title = HTML("</a></li><li><a href = 'https://github.com/khanjian/Shiny-text-analysis'target='_blank'><i class='fa fa-github' style='color:white'></i>")
+                                     )
                            )
 
 )
-  
+ 
+tags$li(a(href = 'https://github.com/BrennieDev/OHI_shiny_app',
+          icon("github"),
+          title = "GitHub"),
+        class = "dropdown")
+
+ 
 server <- function(input, output) {
     
     ### table on main page
@@ -644,12 +663,14 @@ server <- function(input, output) {
                                                      color = "black")))
       )
     })  
+
     ### output 4
     output$ts_plot <- renderPlot({
       ggplot(data = ts_reactive(), aes(x = index, color = moving_avg)) +
         geom_line(aes(y = moving_avg), size = 1) +
         geom_abline(aes(intercept = 0.5, slope = 0), 
                     col = "black", alpha = 0.7) +
+        
         scale_color_viridis() +
         # scale_y_continuous(breaks = seq(0, 1, 0.2)) +
         labs(x = "Novel Progression",
@@ -658,10 +679,10 @@ server <- function(input, output) {
              color = "Valence Score") +
         theme_minimal() +
         theme(plot.caption = element_text(size = 15,
-                                         hjust = 0),
+                                          hjust = 0),
               axis.title = element_text(face = "bold",
-                                          color = "black",
-                                          size = 12.5),
+                                        color = "black",
+                                        size = 12.5),
               axis.text.x = element_blank(),
               axis.text.y = element_text(face = "bold",
                                          size = 12.5),
