@@ -39,13 +39,31 @@ all_books_table <- all_books1 %>%
 # subset all the colors, without the numbers. 
 all_colors <- colors()
 my_colors <-  all_colors[!str_detect(colors(), "[0-9']+")]
+# my_colors <- all_colors[!str_detect(my_colors, c("white", "snow", "azure",
+#                                                 "ivory", "whitesmoke"))]
 
-# test id top 100 downloaded books work 
-# top_100 <- read_table(here("data", "top_ebooks_30.txt"),
-#                       col_names = FALSE)  %>% 
-#   clean_names() %>% 
-#   separate(x1, c("title", "author"), sep ="\\s[by]\\s", remove = FALSE) %>% 
-#   select(title)
+### test id top 100 downloaded books work
+top_100 <- read_table(here("data", "top_ebooks_30.txt"),
+                      col_names = FALSE)  %>%
+  clean_names() %>%
+  mutate(title = str_split_fixed(x1, "by", 2)) %>% 
+  select(title) 
+
+test <- top_100$title
+
+top_100 <- test %>% 
+  as_tibble() %>% 
+  select(V1) %>% 
+  rename(title = "V1") 
+
+top_100$title <- str_squish(top_100$title)
+
+top_100_join <- top_100 %>% 
+  inner_join(all_books, by = "title") %>% 
+  filter(title != "The Masque of the Red Death") %>% 
+  filter(title != "The Works of Edgar Allan Poe — Volume 2")
+
+###  
 
 my_theme <- bs_theme(
   bg = "bisque",
@@ -55,11 +73,21 @@ my_theme <- bs_theme(
   base_font = font_google("Akaya Kanadaka")
 )
 
+# Antic Didone
+# Tangerine - NOPE
+# Charm - 700, MAYBE
+# sofia - no
+# amita - 700 - probs not
+# Quintesssential - 400 - maybe ehhh
+# eagle lake - probs not
+# I think i like Fondamento, not ital
+
 flatly_theme <- bs_theme(version = 3, 
                          bootswatch = "flatly", 
-                         base_font = font_google("Antic Didone"),
+                         base_font = font_google("Fondamento", wght = "400"),
+                         # heading_font = font_google("Courier"),
                          primary = "#663300",
-                         success = "darkslategrey") 
+                         success = "lightslategrey") 
 
 
 ui <- fluidPage(theme = flatly_theme,
@@ -68,7 +96,7 @@ ui <- fluidPage(theme = flatly_theme,
                            ##### 1
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
-                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
+                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through English and American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
                                     fluidRow(column(DT::dataTableOutput("all_books"),
                                                     width = 12)
                                              ),
@@ -126,14 +154,14 @@ ui <- fluidPage(theme = flatly_theme,
                                                                      width = 12)
                                                      )
                                                      ),
-                                        mainPanel("Here’s a word cloud showing the most popular words that show up in your book! The largest words are the ones that show up the most often. This widget allows you to select a book to view the top most frequently occurring words. The larger the word in the cloud, the more often it appears in the text!",
+                                        mainPanel("Here’s a word cloud showing the most popular words that show up in your book! This widget allows you to select a book to view the most frequently occurring words. The larger the word in the cloud, the more often it appears in the text!",
                                                   plotOutput("wc_plot"))
                                     )),
                            ### 3
                            tabPanel(title = "Word-Count", 
                                     icon = icon("calculator"),
                                     sidebarLayout(
-                                        sidebarPanel(  "On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
+                                        sidebarPanel(  "",
                                                        textInput(inputId = "pick_book_wc1",
                                                                  label = "Enter first title",
                                                                  value = ""),
@@ -158,14 +186,15 @@ ui <- fluidPage(theme = flatly_theme,
                                         ), 
                                                      
                                 
-                                        mainPanel( plotOutput("words_plot"))
+                                        mainPanel("On this page, enter a word (any word!) to compare how common it is in up to 4 different books. For example, enter the word 'love' and see how many times that word occurs in each of the selected books!",
+                                                  plotOutput("words_plot"))
                                     )
                                     ),
                            ### 4
                            tabPanel(title = "Sentiment Analysis",
                                     icon = icon("smile-beam"),
                                     sidebarLayout(
-                                      sidebarPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
+                                      sidebarPanel("",
                                                    textInput(inputId = "pick_book3",
                                                              label = "Enter a title:",
                                                              value = ""
@@ -184,7 +213,7 @@ ui <- fluidPage(theme = flatly_theme,
                                       ),
                                       
                                       
-                                      mainPanel("",
+                                      mainPanel("On this page, select a book to explore the frequency of positively and negatively associated words. The most common words related with positive or negative sentiments will appear at the top!",
                                                 plotOutput("pb_plot"))
                                     ))
                            ,
@@ -201,8 +230,8 @@ ui <- fluidPage(theme = flatly_theme,
                                                    sliderInput(inputId = "moving_avg",
                                                                label = "Choose a moving average window:",
                                                                min = 51, 
-                                                               max = 1001, 
-                                                               value = 101,
+                                                               max = 1051, 
+                                                               value = 501,
                                                                step = 10
                                                    ),
                                                    actionButton(inputId = "choose2", 
@@ -232,18 +261,18 @@ server <- function(input, output) {
       DT::datatable({all_books_table[,1:2]},
                     options = list(lengthMenu = list(c(5, 10, 25),
                                                      c('5','10', '25')),
-                                   dom = 'ltipr'),
+                                   dom = 'ltipr', searchHighlight = TRUE),
                     style = "bootstrap",
                     filter = "top",
                     class = 'cell-border stripe',
                     rownames = FALSE,
-                    caption = 'Start searching below to check if your book exists in the Project GutenbergR database:'))
+                    caption = HTML('<p style="color:#663300;">Start searching below to check if your book exists in the Project GutenbergR database:</p>')))
     
     ### table on wc page
     output$all_books_tab1 <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
                     options = list(lengthMenu = list(c(5),c('5')),
-                                   dom = 'tipr'),
+                                   dom = 'tipr', searchHighlight = TRUE),
                     style = "bootstrap",
                     filter = "top",
                     class = 'cell-border stripe',
@@ -253,7 +282,7 @@ server <- function(input, output) {
     output$all_books_tab2 <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
                     options = list(lengthMenu = list(c(5),c('5')),
-                                   dom = 'tipr'),
+                                   dom = 'tipr', searchHighlight = TRUE),
                     style = "bootstrap",
                     filter = "top",
                     class = 'cell-border stripe',
@@ -264,7 +293,7 @@ server <- function(input, output) {
     output$all_books_tab3 <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
                     options = list(lengthMenu = list(c(5),c('5')),
-                                   dom = 'tipr'),
+                                   dom = 'tipr', searchHighlight = TRUE),
                     style = "bootstrap",
                     filter = "top",
                     class = 'cell-border stripe',
@@ -274,7 +303,7 @@ server <- function(input, output) {
     output$all_books_tab4 <- DT::renderDataTable(
       DT::datatable({all_books_table[,1:2]},
                     options = list(lengthMenu = list(c(5),c('5')),
-                                   dom = 'tipr'),
+                                   dom = 'tipr', searchHighlight = TRUE),
                     style = "bootstrap",
                     filter = "top",
                     class = 'cell-border stripe',
@@ -284,35 +313,57 @@ server <- function(input, output) {
     ### Input 1
     wc_reactive <- eventReactive(input$choose_word_cloud,{
       req(input$pick_book)
-      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book,
+      
+      is_here <- shiny::isTruthy((all_books$title %in% c(input$pick_book,
                                                         str_to_title(input$pick_book),
-                                                        str_to_lower(input$pick_book)))
+                                                        str_to_lower(input$pick_book))
+                                  ) | (input$pick_book == "random")
+                                 )
       shinyFeedback::feedbackDanger("pick_book", !is_here, "Unknown title, please double check your spelling")
       req(is_here, cancelOutput = TRUE)
       
-      all_books %>%
-        filter(title %in% c(input$pick_book,
+      if(input$pick_book == "random"){
+        top_100_join %>% 
+          select(gutenberg_id) %>%
+          filter(gutenberg_id == sample(gutenberg_id, 1)) %>% 
+          as.numeric() %>%
+          gutenberg_download(meta_fields = "title",
+                             strip = TRUE,
+                             mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+          unnest_tokens(word, text) %>%
+          anti_join(stop_words) %>%
+          mutate(word = str_extract(word, "[a-z']+")) %>% 
+          count(word, title) %>% 
+          slice_max(n, n = 100)
+      }
+      else{
+        all_books %>%
+          filter(title %in% c(input$pick_book,
                             str_to_lower(input$pick_book),
                             str_to_title(input$pick_book))) %>% # changes the users input to title case
-        select(gutenberg_id) %>%
-        as.numeric() %>%
-        gutenberg_download(meta_fields = "title",
-                           strip = TRUE,
-                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
-        unnest_tokens(word, text) %>%
-        anti_join(stop_words) %>%
-        mutate(word = str_extract(word, "[a-z']+")) %>% 
-        count(word, title) %>% 
-        slice_max(n, n = 100)
+          select(gutenberg_id) %>%
+          as.numeric() %>%
+          gutenberg_download(meta_fields = "title",
+                             strip = TRUE,
+                             mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+          unnest_tokens(word, text) %>%
+          anti_join(stop_words) %>%
+          mutate(word = str_extract(word, "[a-z']+")) %>% 
+          count(word, title) %>% 
+          slice_max(n, n = 100)
+      }
+   
     
     })
+    
     ### Input 2
     words_reactive <-  eventReactive(input$choose_word,{
+      
       req(input$text)
       req(c(input$pick_book_wc1, input$pick_book_wc2,
             input$pick_book_wc3, input$pick_book_wc4))
 
-      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book_wc1,
+      is_here <- shiny::isTruthy((all_books$title %in% c(input$pick_book_wc1,
                                                         str_to_lower(input$pick_book_wc1),
                                                         str_to_title(input$pick_book_wc1),
                                                         input$pick_book_wc2,
@@ -323,9 +374,33 @@ server <- function(input, output) {
                                                         str_to_title(input$pick_book_wc3),
                                                         input$pick_book_wc4,
                                                         str_to_lower(input$pick_book_wc4),
-                                                        str_to_title(input$pick_book_wc4)))
+                                                        str_to_title(input$pick_book_wc4))
+                                  ) | (c(input$pick_book_wc1, input$pick_book_wc2,
+                                         input$pick_book_wc3, input$pick_book_wc4) %in% "random")  
+                                 )
       shinyFeedback::feedbackDanger("text", !is_here, "Please enter a valid title in one of the four boxes")
       req(is_here, cancelOutput = TRUE)
+
+    
+    if(c(input$pick_book_wc1, input$pick_book_wc2,
+         input$pick_book_wc3, input$pick_book_wc4) %in% "random") {
+      top_100_join %>% 
+        select(gutenberg_id) %>%
+        filter(gutenberg_id %in% sample(gutenberg_id, 4)) %>% 
+        # as.numeric() %>%
+        gutenberg_download(meta_fields = "title",
+                           strip = TRUE,
+                           mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+        unnest_tokens(word, text) %>%
+        anti_join(stop_words) %>%
+        mutate(word = str_extract(word, "[a-z']+")) %>%
+        filter(word %in% c(str_to_lower(input$text),
+                           input$text)) %>%
+        group_by(title, word) %>%
+        summarise(count = n())
+    }
+    
+    else{
       
       all_books %>%
         filter(title %in% c(input$pick_book_wc1,
@@ -352,18 +427,42 @@ server <- function(input, output) {
                            input$text)) %>%
         group_by(title, word) %>%
         summarise(count = n())
-    })
-    
+    }
+})
+
     ###Input 3
     
     pb_reactive <- eventReactive(input$choose,{
       req(input$pick_book3)
-      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book3,
+      is_here <- shiny::isTruthy((all_books$title %in% c(input$pick_book3,
                                    str_to_title(input$pick_book3),
-                                   str_to_lower(input$pick_book3)))
+                                   str_to_lower(input$pick_book3))
+                                  ) | (input$pick_book3 == "random")
+                                 )
       shinyFeedback::feedbackDanger("pick_book3", !is_here, "Unknown title")
       req(is_here, cancelOutput = TRUE)
       
+      if(input$pick_book3 == "random"){
+        top_100_join %>% 
+          select(gutenberg_id) %>%
+          filter(gutenberg_id == sample(gutenberg_id, 1)) %>% 
+          as.numeric() %>%
+          gutenberg_download(meta_fields = "title",
+                                             strip = TRUE,
+                                             mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+          unnest_tokens(word, text) %>%
+          anti_join(stop_words) %>%
+          mutate(word = str_extract(word, "[a-z']+")) %>%
+          inner_join(get_sentiments(input$pick_sentiment)) %>%
+          count(word, sentiment, title, sort = TRUE) %>%
+          ungroup() %>% 
+          group_by(sentiment) %>%
+          top_n(8) %>%
+          ungroup() %>%
+          mutate(word = reorder(word, n)) %>% 
+          mutate(dict = input$pick_sentiment)
+      }
+      else{
       all_books %>%
         filter(title %in% c(input$pick_book3,
                             str_to_title(input$pick_book3),
@@ -384,25 +483,47 @@ server <- function(input, output) {
         ungroup() %>%
         mutate(word = reorder(word, n)) %>% 
         mutate(dict = input$pick_sentiment)
+      }
     })
     
     ###Input 4
     
     ts_reactive <- eventReactive(input$choose2,{
       req(input$pick_book4)
-      is_here <- shiny::isTruthy(all_books$title %in% c(input$pick_book4,
+      is_here <- shiny::isTruthy((all_books$title %in% c(input$pick_book4,
                                                         str_to_title(input$pick_book4),
-                                                        str_to_lower(input$pick_book4)))
+                                                        str_to_lower(input$pick_book4))
+                                  ) | (input$pick_book4 == "random")
+                                 )
       shinyFeedback::feedbackDanger("pick_book4", !is_here, "Unknown title, please double check your spelling")
       req(is_here, cancelOutput = TRUE)
+      
+      if(input$pick_book4 == "random"){
+        top_100_join %>% 
+          select(gutenberg_id) %>%
+          filter(gutenberg_id == sample(gutenberg_id, 1)) %>% 
+          as.numeric() %>%
+          gutenberg_download(meta_fields = "title",
+                             strip = TRUE,
+                             mirror = "http://mirrors.xmission.com/gutenberg/") %>%
+          unnest_tokens(word, text) %>%
+          anti_join(stop_words) %>%
+          mutate(word = str_extract(word, "[a-z']+")) %>%
+          inner_join(lexicon_nrc_vad(), by = c("word" = "Word")) %>%
+          drop_na(Valence) %>% 
+          mutate(index = seq(1, length(word) ,1)) %>% 
+          mutate(moving_avg = as.numeric(slide(Valence, 
+                                               mean, 
+                                               .before = (input$moving_avg - 1)/2 , 
+                                               .after = (input$moving_avg - 1)/2 )))
+      }
+      
+      else{
       
       all_books %>%
         filter(title %in% c(input$pick_book4, 
                             str_to_title(input$pick_book4),
                             str_to_lower(input$pick_book4))) %>%  
-       # shinyFeedback::feedbackWarning("n", (is.null(title_chosen) == TRUE), 
-       #                               "Please enter a valid title!")
-       #  req(title_chosen)
         select(gutenberg_id) %>%
         as.numeric() %>%
         gutenberg_download(meta_fields = "title",
@@ -418,7 +539,7 @@ server <- function(input, output) {
                                              mean, 
                                              .before = (input$moving_avg - 1)/2 , 
                                              .after = (input$moving_avg - 1)/2 )))
-      
+      }
     })
 
     ### output 1
@@ -429,7 +550,7 @@ server <- function(input, output) {
         geom_text_wordcloud(aes(size = head(n, input$wc_count)),
                             color = input$pick_color,
                             shape = input$wc_shape) +
-        scale_size_area(max_size = 10) +
+        scale_size_area(max_size = 11) +
         theme_void() +
         labs(caption = paste('Wordcloud for', wc_reactive()[1,"title"],
                            'with',input$wc_count, "words.")) +
@@ -438,9 +559,10 @@ server <- function(input, output) {
       
     })
     
+    
     ### output 2
     output$words_plot <- renderPlot({
-        ggplot(data = words_reactive(), aes(x = title, y = count)) +
+        ggplot(data = words_reactive(), aes(x = fct_reorder(title, count), y = count)) +
             geom_col(aes(fill = title), show.legend = FALSE) + 
             coord_flip() +
             labs(x = "Title",
@@ -466,9 +588,11 @@ server <- function(input, output) {
       dictionary <- as.character(pb_reactive()[1, "dict"])
       switch(dictionary,
              
-           nrc = (ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
-             geom_col(show.legend = FALSE) +
-             facet_wrap(~sentiment, scales = "free") +
+           nrc = (ggplot(pb_reactive(), aes(n, word, fill = n)) +
+             geom_col(color = "white") +
+             facet_wrap(~sentiment, scales = "free",
+                        nrow = 2) +
+             scale_fill_gradient(low = "lightblue", high = "midnightblue") +
              labs(x = "Count",
                   title = paste("Sentiment Analysis for", 
                                 pb_reactive()[1,"title"])) +
@@ -476,8 +600,9 @@ server <- function(input, output) {
                theme(axis.text.x = element_text(size = 12,
                                               face = "bold",
                                               color = "black"),
-                     axis.text.y = element_text(size = 10.5,
-                                                face = "bold"),
+                     axis.text.y = element_text(size = 10.25,
+                                                face = "bold",
+                                                color = "black"),
                      axis.title.y = element_blank(),
                      axis.title.x = element_text(face = "bold",
                                                  color = "black",
@@ -488,7 +613,12 @@ server <- function(input, output) {
                      panel.grid.major.y = element_blank(),
                      strip.text = element_text(size = 13,
                                                face = "bold",
-                                               color = "black"))),
+                                               color = "black"),
+                     legend.title = element_blank(),
+                     legend.text = element_text(face = "bold",
+                                                size = 11,
+                                                color = "black"),
+                     legend.position = "bottom")),
            
            bing = (ggplot(pb_reactive(), aes(n, word, fill = sentiment)) +
                      geom_col(show.legend = FALSE) +
@@ -531,17 +661,17 @@ server <- function(input, output) {
                                          hjust = 0),
               axis.title = element_text(face = "bold",
                                           color = "black",
-                                          size = 12),
+                                          size = 12.5),
               axis.text.x = element_blank(),
               axis.text.y = element_text(face = "bold",
-                                         size = 11),
+                                         size = 12.5),
               
               panel.grid.minor = element_blank(),
               panel.grid.major.x = element_blank(),
-              legend.title = element_text(size = 12,
+              legend.title = element_text(size = 12.5,
                                           face = "bold"),
               legend.text = element_text(face = "bold",
-                                         size = 11))
+                                         size = 12))
     })
     
 }
