@@ -68,7 +68,7 @@ ui <- fluidPage(theme = flatly_theme,
                            ##### 1
                            tabPanel(title = " Summary", 
                                     icon = icon("home"),
-                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through American literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
+                                    mainPanel(HTML("<h2> Welcome to What’s in a Word!</h2> <br><br> By: Roupen Khanjian, Michelle Handy, Roni Shen  <h4>This Shiny App will take you on a journey through American and English literature with text and sentiment analysis. Data for this project is provided by Project GutenbergR, a publicly available repository of online book data.</h4> <br>  <h4>Click on each tab when you’re ready to start exploring what’s in a word!</h4> <br><br>")),
                                     fluidRow(column(DT::dataTableOutput("all_books"),
                                                     width = 12)
                                              ),
