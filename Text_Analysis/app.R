@@ -43,8 +43,9 @@ my_colors <-  all_colors[!str_detect(colors(), "[0-9']+")]
 ### test id top 100 downloaded books work
 
 # Need this for shinyapps.io
+# here("Text_Analysis", "www", "top_ebooks_30.txt")
 # "www/top_ebooks_30.txt"
-top_100 <- read_table(here("Text_Analysis", "www", "top_ebooks_30.txt"),
+top_100 <- read_table("www/top_ebooks_30.txt",
                       col_names = FALSE)  %>%
   clean_names() %>%
   mutate(title = str_split_fixed(x1, "by", 2)) %>% 
@@ -83,8 +84,8 @@ flatly_theme <- bs_theme(version = 3,
 
 ### NRC lexicons
 
-nrc_emotions <- get_sentiments("nrc")
-nrc_vad <- lexicon_nrc_vad()
+# nrc_emotions <- get_sentiments("nrc")
+# nrc_vad <- lexicon_nrc_vad()
 
 # Bing lexicons
 bing_lexicon <- get_sentiments("bing")
@@ -94,8 +95,8 @@ bing_lexicon <- get_sentiments("bing")
 # write_csv(nrc_emotions, "nrc_emotions.csv")
 # write_csv(nrc_vad, "nrc_vad.csv")
 
-# nrc_emotions <- read_csv("www/nrc_emotions.csv")
-# nrc_vad  <- read_csv("www/nrc_vad.csv")
+nrc_emotions <- read_csv("www/nrc_emotions.csv")
+nrc_vad  <- read_csv("www/nrc_vad.csv")
 
 # App UI
 ui <- fluidPage(theme = flatly_theme,
@@ -604,11 +605,7 @@ server <- function(input, output) {
           mutate(word = str_extract(word, "[a-z']+")) %>%
           inner_join(nrc_vad, by = c("word" = "Word")) %>%
           drop_na(Valence) %>% 
-          mutate(index = seq(1, length(word) ,1)) %>% 
-          mutate(moving_avg = as.numeric(slide(Valence, # added moving average option
-                                               mean, 
-                                               .before = (input$moving_avg - 1)/2 , 
-                                               .after = (input$moving_avg - 1)/2 )))
+          mutate(index = seq(1, length(word) ,1)) 
       }
       
       else{
@@ -627,11 +624,7 @@ server <- function(input, output) {
         mutate(word = str_extract(word, "[a-z']+")) %>%
         inner_join(nrc_vad, by = c("word" = "Word")) %>%
         drop_na(Valence) %>% 
-        mutate(index = seq(1, length(word) ,1)) %>% 
-        mutate(moving_avg = as.numeric(slide(Valence, # added moving average option
-                                             mean, 
-                                             .before = (input$moving_avg - 1)/2 , 
-                                             .after = (input$moving_avg - 1)/2 )))
+        mutate(index = seq(1, length(word) ,1)) 
       }
     })
 
@@ -740,7 +733,13 @@ server <- function(input, output) {
 
     ### output 4
     output$ts_plot <- renderPlot({
-      ggplot(data = ts_reactive(), aes(x = index, color = moving_avg)) +
+      ts_reactive() %>% 
+        mutate(moving_avg = as.numeric(slide(Valence, # added moving average option
+                                             mean, 
+                                             .before = (input$moving_avg - 1)/2 , 
+                                             .after = (input$moving_avg - 1)/2 ))) %>% 
+      
+      ggplot(aes(x = index, color = moving_avg)) +
         geom_line(aes(y = moving_avg), size = 1) +
         geom_abline(aes(intercept = 0.5, slope = 0), 
                     col = "black", alpha = 0.7) +
@@ -748,10 +747,7 @@ server <- function(input, output) {
         scale_color_viridis() +
         labs(x = "Novel Progression",
              y = "NRC Valence Sentiment Moving Average",
-             caption =  paste('Using only the valence scores from the NRC Valence, Arousal, and
-                              Dominance\nLexicon, this graph depicts the sentiment of',  ts_reactive()[1, "title"] ,'as the 
-                              novel progresses.\n\n*Note: Valence scores can range from 0 (displeasure) to 1 (pleasure), but 
-                              tend to start\nabove 0.5 because books usually contain more positive than negative words.'),
+             caption =  paste('Using only the valence scores from the NRC Valence, Arousal, and Dominance\nLexicon, this graph depicts the sentiment of',  ts_reactive()[1, "title"] ,'as the novel progresses.\n\n*Note: Valence scores can range from 0 (displeasure) to 1 (pleasure), but tend to start\nabove 0.5 because books usually contain more positive than negative words.'),
              color = "Valence Score") +
         theme_minimal() +
         theme(plot.caption = element_text(size = 15,
